@@ -17,7 +17,9 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+# Force math SDPA globally to match CPU numeric behavior on GPU/ROCm/CUDA
 os.environ["PYTORCH_SDP_BACKEND"] = "math"
+
 import re
 from datetime import datetime
 from pathlib import Path
@@ -47,11 +49,28 @@ def setup_logging(verbosity: int) -> None:
 
 # ------------------------ device pick ------------------------
 
+def _configure_numeric_precisions_for_cuda() -> None:
+    """Use the NEW API to control TF32 / FP32 precision to avoid deprecation warnings."""
+    # Disable TF32 equivalents using new knobs (keep behavior closer to CPU/old runs)
+    try:
+        # cuBLAS / matmul
+        if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
+            # valid options: "ieee", "high", "highest" (PyTorch docs)
+            torch.backends.cuda.matmul.fp32_precision = "ieee"
+    except Exception:
+        pass
+    try:
+        # cuDNN convolutions
+        if hasattr(torch.backends, "cudnn") and hasattr(torch.backends.cudnn, "conv"):
+            # valid options: "fp32", "tf32"
+            torch.backends.cudnn.conv.fp32_precision = "fp32"
+    except Exception:
+        pass
+
 def pick_device() -> torch.device:
     """Choose best available device: ROCm/CUDA → MPS → CPU, with clear logging."""
     if torch.cuda.is_available():
-        torch.backends.cuda.matmul.allow_tf32 = False
-        torch.backends.cudnn.allow_tf32 = False
+        _configure_numeric_precisions_for_cuda()
         backend = "ROCm" if getattr(torch.version, "hip", None) else "CUDA"
         print(f"[device] Using {backend}: {torch.cuda.get_device_name(0)}")
         return torch.device("cuda:0")
@@ -122,7 +141,6 @@ def build_model(vocab_size: int, weights_path: str, device: torch.device):
 
 # ------------------------ baseline generation (unchanged) ------------------------
 
-# The following constants enforce baseline fidelity:
 _BASELINE_MAX_LEN = 2000
 _BASELINE_TEMPERATURE = 1.0
 _BASELINE_TOKENIZER_REPO = "google/flan-t5-base"
@@ -146,7 +164,7 @@ def baseline_generate_to_midi(
     out_path: str,
 ) -> str:
     """Run generation EXACTLY like the baseline and dump a MIDI file to out_path."""
-    with torch.no_grad():  # baseline didn't use autocast; we keep FP32/no-AMP here
+    with torch.no_grad():  # no AMP/autocast; pure baseline
         output = model.generate(
             input_ids,
             attention_mask,
@@ -163,7 +181,7 @@ def baseline_generate_to_midi(
 _DEFAULT_SF2 = Path.home() / ".fluidsynth" / "default_sound_font.sf2"
 
 def _resolve_default_sf2() -> Path | None:
-    """Return default SoundFont path if it exists, else None (handles symlink that points to '~')."""
+    """Return default SoundFont path if it exists, else None (handles ~ in symlink target)."""
     p = _DEFAULT_SF2.expanduser()
     if p.exists():
         return p
@@ -247,8 +265,6 @@ def launch_webui(args, model, r_tokenizer, tok, device):
         if seed_text:
             try:
                 torch.manual_seed(int(seed_text))
-                torch.backends.cudnn.deterministic = True
-                torch.backends.cudnn.benchmark = False
             except ValueError:
                 return None, None, "Seed must be an integer."
 
@@ -286,7 +302,7 @@ def launch_webui(args, model, r_tokenizer, tok, device):
                 label="Prompt",
                 placeholder="Describe the music (style, instruments, key, tempo, mood)...",
             )
-        # We show fixed, non-interactive baseline params for clarity
+        # Fixed baseline params for clarity
         with gr.Row():
             gr.Number(value=_BASELINE_MAX_LEN, precision=0, label="max_len (fixed)", interactive=False)
             gr.Number(value=_BASELINE_TEMPERATURE, label="temperature (fixed)", interactive=False)
@@ -319,7 +335,7 @@ def main() -> None:
     parser.add_argument("--prompt", "-p", default=None, help="Prompt text. If omitted, enter interactive mode.")
     parser.add_argument("--prompt-file", "-P", help="Read the prompt from a UTF-8 text file.")
     parser.add_argument("--out", "-o", default=None, help="Output MIDI path (optional).")
-    # These two are intentionally not used to preserve baseline; kept for compatibility only:
+    # Kept for compatibility, but ignored by baseline generation:
     parser.add_argument("--max-len", type=int, default=_BASELINE_MAX_LEN, help="(Ignored; baseline uses 2000).")
     parser.add_argument("--temperature", type=float, default=_BASELINE_TEMPERATURE, help="(Ignored; baseline uses 1.0).")
 
