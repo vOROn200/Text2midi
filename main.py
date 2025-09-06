@@ -49,28 +49,27 @@ def setup_logging(verbosity: int) -> None:
 
 # ------------------------ device pick ------------------------
 
-def _configure_numeric_precisions_for_cuda() -> None:
-    """Use the NEW API to control TF32 / FP32 precision to avoid deprecation warnings."""
-    # Disable TF32 equivalents using new knobs (keep behavior closer to CPU/old runs)
+def _configure_numeric_precisions_backend() -> None:
+    """Настроить матричную точность ТОЛЬКО на CUDA. На ROCm пропускаем."""
+    # На ROCm (HIP) ничего не трогаем — иначе ловим W906
+    if getattr(torch.version, "hip", None):
+        return
+    # Новые API PyTorch (без deprecated-предупреждений):
     try:
-        # cuBLAS / matmul
         if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
-            # valid options: "ieee", "high", "highest" (PyTorch docs)
-            torch.backends.cuda.matmul.fp32_precision = "ieee"
+            torch.backends.cuda.matmul.fp32_precision = "ieee"   # 'ieee' вместо TF32
     except Exception:
         pass
     try:
-        # cuDNN convolutions
         if hasattr(torch.backends, "cudnn") and hasattr(torch.backends.cudnn, "conv"):
-            # valid options: "fp32", "tf32"
-            torch.backends.cudnn.conv.fp32_precision = "fp32"
+            torch.backends.cudnn.conv.fp32_precision = "fp32"   # для свёрток
     except Exception:
         pass
 
 def pick_device() -> torch.device:
     """Choose best available device: ROCm/CUDA → MPS → CPU, with clear logging."""
     if torch.cuda.is_available():
-        _configure_numeric_precisions_for_cuda()
+        _configure_numeric_precisions_backend()
         backend = "ROCm" if getattr(torch.version, "hip", None) else "CUDA"
         print(f"[device] Using {backend}: {torch.cuda.get_device_name(0)}")
         return torch.device("cuda:0")
