@@ -75,6 +75,16 @@ generated_midi.dump_midi("output.mid")
 
 ## Installation
 
+Install sf2
+
+sudo apt-get install fluidsynth // or brew install fluidsynth
+mkdir ~/.fluidsynth
+cd ~/.fluidsynth
+wget https://keymusician01.s3.amazonaws.com/FluidR3_GM.zip
+unzip FluidR3_GM.zip
+rm FluidR3_GM.zip
+ln -s "/<path-to-user>/.fluidsynth/FluidR3_GM.sf2" ~/.fluidsynth/default_sound_font.sf2
+
 If you have CUDA supported machine:
 
 ```bash
