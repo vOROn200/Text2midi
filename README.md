@@ -56,7 +56,6 @@ tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base")
 
 print('Model loaded.')
 
-
 # Enter the text prompt and tokenize it
 src = "A melodic electronic song with ambient elements, featuring piano, acoustic guitar, alto saxophone, string ensemble, and electric bass. Set in G minor with a 4/4 time signature, it moves at a lively Presto tempo. The composition evokes a blend of relaxation and darkness, with hints of happiness and a meditative quality."
 print('Generating for prompt: ' + src)
@@ -77,15 +76,22 @@ generated_midi.dump_midi("output.mid")
 ## Installation
 
 If you have CUDA supported machine:
+
 ```bash
 git clone https://github.com/AMAAI-Lab/text2midi
 cd text2midi
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
 Alternatively, if you have MPS supported machine:
+
 ```bash
 git clone https://github.com/AMAAI-Lab/text2midi
 cd text2midi
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements-mac.txt
 ```
 
@@ -94,9 +100,10 @@ pip install -r requirements-mac.txt
 The model was trained using two datasets: [SymphonyNet](https://symphonynet.github.io/) for semi-supervised pretraining and MidiCaps for finetuning towards MIDI generation from captions. 
 The [MidiCaps dataset](https://huggingface.co/datasets/amaai-lab/MidiCaps) is a large-scale dataset of 168k MIDI files paired with rich text captions. These captions contain musical attributes such as key, tempo, style, and mood, making it ideal for text-to-MIDI generation tasks as described in [this paper](https://arxiv.org/abs/2406.02255). 
 
-
 ## Citation
+
 If you use text2midi in your research, please cite:
+
 ```
 @inproceedings{bhandari2025text2midi,
     title={text2midi: Generating Symbolic Music from Captions}, 
@@ -120,8 +127,8 @@ Each question is rated on a Likert scale from 1 (very bad) to 7 (very good). The
 | Chord Matching      | 3.20     | 2.50      | 2.00     |
 | Tempo Matching      | 5.89     | 5.42      | 4.94     |
 
-
 ## Objective Evaluations
+
 Results of objective evaluation for *all* of MidiCaps test set. Please not we have improved from all the numbers written in the paper (the numbers in paper are on a small subset of MidiCaps test set). 
 
 | Metric              | text2midi | MidiCaps | MuseCoco |
@@ -143,20 +150,23 @@ CKD = Correct Key with Duplicates
 ↑ = Higher score is better.
 
 ## Training
+
 To train text2midi, we recommend using accelerate for multi-GPU support. First, configure accelerate by running:
+
 ```bash
 accelerate config
 ```
 
 Then, use the following command to start training:
+
 ```bash
 accelerate launch --multi_gpu --num_processes=4 train_accelerate.py --config ../config.yaml
 ```
 
 ## Inference
+
 We support inference on CUDA, MPS and cpu. Please make sure you have pip installed the correct requirement file (requirments.txt for CUDA, requirements-mac.txt for MPS)
+
 ```bash
 python model/transformer_model.py --caption <your intended descriptions>
 ```
-
-
