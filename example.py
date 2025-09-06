@@ -5,6 +5,27 @@ from transformers import T5Tokenizer
 from model.transformer_model import Transformer
 from huggingface_hub import hf_hub_download
 
+# --- NEW: seeding for reproducibility ---------------------------------------
+import os, random
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+SEED = 42  # <- set your fixed seed here
+
+# Seed Python and NumPy (if available)
+random.seed(SEED)
+if np is not None:
+    np.random.seed(SEED)
+
+# Seed PyTorch (CPU and, if present, GPU)
+torch.manual_seed(SEED)
+# cuDNN determinism (only relevant when CUDA backend is used)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+# ----------------------------------------------------------------------------
+
 repo_id = "amaai-lab/text2midi"
 # Download the model.bin file
 model_path = hf_hub_download(repo_id=repo_id, filename="pytorch_model.bin")
@@ -41,11 +62,11 @@ print('Generating for prompt: ' + src)
 inputs = tokenizer(src, return_tensors='pt', padding=True, truncation=True)
 input_ids = nn.utils.rnn.pad_sequence(inputs.input_ids, batch_first=True, padding_value=0)
 input_ids = input_ids.to(device)
-attention_mask =nn.utils.rnn.pad_sequence(inputs.attention_mask, batch_first=True, padding_value=0) 
+attention_mask = nn.utils.rnn.pad_sequence(inputs.attention_mask, batch_first=True, padding_value=0)
 attention_mask = attention_mask.to(device)
 
-# Generate the midi
-output = model.generate(input_ids, attention_mask, max_len=2000,temperature = 1.0)
+# Generate the midi (unchanged)
+output = model.generate(input_ids, attention_mask, max_len=2000, temperature=1.0)
 output_list = output[0].tolist()
 generated_midi = r_tokenizer.decode(output_list)
 generated_midi.dump_midi("output.mid")
