@@ -83,6 +83,8 @@ cd text2midi
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+python main.py --webui
 ```
 
 Alternatively, if you have MPS supported machine:
@@ -93,6 +95,8 @@ cd text2midi
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-mac.txt
+
+python main.py --webui
 ```
 
 ## Datasets
