@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+os.environ["PYTORCH_SDP_BACKEND"] = "math"
 import re
 from datetime import datetime
 from pathlib import Path
@@ -49,6 +50,8 @@ def setup_logging(verbosity: int) -> None:
 def pick_device() -> torch.device:
     """Choose best available device: ROCm/CUDA → MPS → CPU, with clear logging."""
     if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
         backend = "ROCm" if getattr(torch.version, "hip", None) else "CUDA"
         print(f"[device] Using {backend}: {torch.cuda.get_device_name(0)}")
         return torch.device("cuda:0")
@@ -244,6 +247,8 @@ def launch_webui(args, model, r_tokenizer, tok, device):
         if seed_text:
             try:
                 torch.manual_seed(int(seed_text))
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
             except ValueError:
                 return None, None, "Seed must be an integer."
 

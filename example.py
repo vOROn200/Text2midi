@@ -1,3 +1,6 @@
+import os, random
+import os
+os.environ["PYTORCH_SDP_BACKEND"] = "math"
 import pickle
 import torch
 import torch.nn as nn
@@ -6,7 +9,6 @@ from model.transformer_model import Transformer
 from huggingface_hub import hf_hub_download
 
 # --- NEW: seeding for reproducibility ---------------------------------------
-import os, random
 try:
     import numpy as np
 except ImportError:
@@ -24,6 +26,11 @@ torch.manual_seed(SEED)
 # cuDNN determinism (only relevant when CUDA backend is used)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+
+if torch.cuda.is_available():
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+torch.set_float32_matmul_precision('highest')
 # ----------------------------------------------------------------------------
 
 repo_id = "amaai-lab/text2midi"
